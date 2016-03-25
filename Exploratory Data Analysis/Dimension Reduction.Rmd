@@ -1,0 +1,117 @@
+---
+title: "Dimension Reduction"
+author: "Jake Ge"
+date: "March 24, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+set.seed(123)
+dataMatrix <- matrix(rnorm(400, 0, 1), 40, 10)
+image(dataMatrix)
+```
+```{r}
+heatmap(dataMatrix)
+```
+We can see that even with the clustering that heatmap provides, permuting the rows (observations) and columns (variables) independently, the data still looks random.
+
+### Little bit of theory
+Now we'll talk a little theory. Suppose you have 1000's of multivariate variables X_1, ...,X_n. By multivariate we mean that each X_i contains many components, i.e., X_i = (X_{i1}, ... , X_{im}. However, these variables (observations) and their components might be correlated to one another.
+
+As data scientists, we'd like to find a smaller set of multivariate variables that are uncorrelated AND explain as much variance (or variability) of the data as possible. This is a statistical approach.
+
+In other words, we'd like to find the best matrix created with fewer variables (that is, a lower rank matrix) that explains the original data. This is related to data compression.
+
+Two related solutions to these problems are PCA which stands for Principal Component Analysis and SVD, Singular Value Decomposition. This latter simply means that we express a matrix X of observations (rows) and variables (columns) as the product of 3 other matrices, i.e., X=UDV^t. This last term (V^t) represents the transpose of the matrix V.
+
+Here U and V each have orthogonal (uncorrelated) columns. U's columns are the left singular vectors of X and V's columns are the right singular vectors of X.  D is a diagonal matrix, by which we mean that all of its entries not on the diagonal are 0. The diagonal entries of D are the singular values of X.
+
+To illustrate this idea we created a simple example matrix called mat. Look at it now.
+
+```{r}
+mat <- matrix(c(1,2,2,5,3,7), 2, 3)
+mat
+```
+
+### svd(), singular value decomposition
+```{r}
+svd(mat)
+```
+
+We see that the function returns 3 components, d which holds 2 diagonal elements, u, a 2 by 2 matrix, and v, a 3 by 2 matrix. We stored the diagonal entries in a diagonal matrix for you, diag, and we also stored u and v in the variables matu and matv respectively. Multiply matu by diag by t(matv) to see what you get. (This last expression represents the transpose of matv in R). Recall that in R matrix multiplication requires you to use the operator %*%.
+
+```{r}
+matu <- svd(mat)$u
+matv <- svd(mat)$v
+diag <- diag(svd(mat)$d,2,2)
+matu %*% diag %*% t(matv)
+```
+
+So we did in fact get mat back. Note that this type of decomposition is NOT unique.
+
+### PCA, Principal Component Analysis
+
+Now we'll talk a little about PCA, Principal Component Analysis, "a simple, non-parametric method for extracting relevant information from confusing data sets." We're quoting here from a very nice concise paper on this subject which can be found at http://arxiv.org/pdf/1404.1100.pdf. The paper by Jonathon Shlens of Google Research is called, A Tutorial on Principal Component Analysis.
+
+Basically, PCA is a method to reduce a high-dimensional data set to its essential elements (not lose information) and explain the variability in the data. We won't go into the mathematical details here, (R has a function to perform PCA), but you should know that SVD and PCA are closely related.
+
+We'll demonstrate this now. First we have to scale mat, our simple example data matrix.  This means that we subtract the column mean from every element and divide the result by the column standard deviation. Of course R has a command, scale, that does this for you. Run svd on scale of mat.
+
+```{r}
+svd(scale(mat))
+```
+Now run the R program prcomp on scale(mat). This will give you the principal components of mat. See if they look familiar.
+```{r}
+prcomp(scale(mat))
+```
+Notice that the principal components of the scaled matrix, shown in the Rotation component of the prcomp output, ARE the columns of V, the right singular values. Thus, PCA of a scaled matrix yields the V matrix (right singular vectors) of the same scaled matrix.
+
+To prove we're not making this up, we've run svd on dataMatrix and stored the result in the object svd1. This has 3 components, d, u and v. look at the first column of V now. It can be viewed by using the svd1$v[,1] notation.
+
+```{r}
+svd1 <- svd(dataMatrix)
+svd1$v[,1]
+```
+
+The first column of the U matrix associated with the scaled data matrix. This is the first LEFT singular vector and it's associated with the ROW means of the clustered data.
+
+the first column of the V matrix associated with the scaled and clustered data matrix. This is the first RIGHT singular vector and it's associated with the COLUMN means of the clustered data.
+
+Why were the first columns of both the U and V matrices so special?  Well as it happens, the D matrix of the SVD explains this phenomenon. It is an aspect of SVD called variance explained. Recall that D is the diagonal matrix sandwiched in between U and V^t in the SVD representation of the data matrix. The diagonal entries of D are like weights for the U and V columns accounting for the variation in the data. They're given in decreasing order from highest to lowest. Look at these diagonal entries now. Recall that they're stored in svd1$d.
+
+```{r}
+svd1$d
+```
+
+Here's a display of these values (on the left). The first one (12.46) is significantly bigger than the others. Since we don't have any units specified, to the right we've plotted the proportion of the variance each entry represents. We see that the first entry accounts for about 40% of the variance in the data. This explains why the first columns of the U and V matrices respectively showed the distinctive patterns in the row and column means so clearly.
+
+Now we'll show you another simple example of how SVD explains variance. We've created a 40 by 10 matrix, constantMatrix. Use the R command head with constantMatrix as its argument to see the top rows.
+
+```{r}
+constantMatrix <- matrix(rep(c(0,1), each = 200), 40, 10)
+head(constantMatrix)
+```
+
+The rest of the rows look just like these. You can see that the left 5 columns are all 0's and the right 5 columns are all 1's. We've run svd with constantMatrix as its argument for you and stored the result in svd2. Look at the diagonal component, d, of svd2 now.
+
+```{r}
+svd2 <- svd(constantMatrix)
+svd2$d
+```
+
+So the first entry by far dominates the others. Here the picture on the left shows the heat map of constantMatrix. You can see how the left columns differ from the right ones. The middle plot shows the values of the singular values of the matrix, i.e., the diagonal elements which are the entries of svd2$d. Nine of these are 0 and the first is a little above 14. The third plot shows the proportion of the total each diagonal element represents.
+
+```{r}
+heatmap(constantMatrix)
+```
+
+So the first entry by far dominates the others. Here the picture on the left shows the heat map of constantMatrix. You can see how the left columns differ from the right ones. The middle plot shows the values of the singular values of the matrix, i.e., the diagonal elements which are the entries of svd2$d. Nine of these are 0 and the first is a little above 14. The third plot shows the proportion of the total each diagonal element represents.
+
+So the first diagonal element accounts for 100% of the total variation.
+
+So what does this mean? Basically that the data is one-dimensional. Only 1 piece of information, namely which column an entry is in, determines its value.
+
